@@ -491,7 +491,7 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": crontab(minute=30, hour=0, day_of_week="sun"),
     },
 }
-
+CELERY_BEAT_SCHEDULE_FILENAME = os.path.join(DATA_DIR, "celerybeat-schedule")
 
 # django setting.
 CACHES = {

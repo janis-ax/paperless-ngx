@@ -12,7 +12,6 @@ from django.utils.text import slugify
 from django.utils.translation import gettext as _
 from rest_framework import serializers
 from rest_framework.fields import SerializerMethodField
-from django_celery_results.models import TaskResult
 
 from . import bulk_edit
 from .models import Correspondent
@@ -621,7 +620,17 @@ class TasksViewSerializer(serializers.ModelSerializer):
     class Meta:
         model = PaperlessTask
         depth = 1
-        fields = "__all__"
+        fields = (
+            "id",
+            "type",
+            "status",
+            "result",
+            "acknowledged",
+            "date_created",
+            "date_done",
+            "task_name",
+            "task_id",
+        )
 
     type = serializers.SerializerMethodField()
 
@@ -643,7 +652,39 @@ class TasksViewSerializer(serializers.ModelSerializer):
         result = "unknown"
         if hasattr(obj, "attempted_task") and obj.attempted_task:
             result = obj.attempted_task.status
-        return result.lower()
+        return result
+
+    date_created = serializers.SerializerMethodField()
+
+    def get_date_created(self, obj):
+        result = ""
+        if hasattr(obj, "attempted_task") and obj.attempted_task:
+            result = obj.attempted_task.date_created
+        return result
+
+    date_done = serializers.SerializerMethodField()
+
+    def get_date_done(self, obj):
+        result = ""
+        if hasattr(obj, "attempted_task") and obj.attempted_task:
+            result = obj.attempted_task.date_done
+        return result
+
+    task_name = serializers.SerializerMethodField()
+
+    def get_task_name(self, obj):
+        result = ""
+        if hasattr(obj, "attempted_task") and obj.attempted_task:
+            result = obj.attempted_task.task_name
+        return result
+
+    task_id = serializers.SerializerMethodField()
+
+    def get_task_id(self, obj):
+        result = ""
+        if hasattr(obj, "attempted_task") and obj.attempted_task:
+            result = obj.attempted_task.task_id
+        return result
 
 
 class AcknowledgeTasksViewSerializer(serializers.Serializer):

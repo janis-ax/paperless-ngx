@@ -10,6 +10,8 @@ import zipfile
 from unittest import mock
 from unittest.mock import MagicMock
 
+import celery
+
 try:
     import zoneinfo
 except ImportError:
@@ -32,6 +34,7 @@ from documents.models import SavedView
 from documents.models import StoragePath
 from documents.models import Tag
 from documents.models import UiSettings
+from django_celery_results.models import TaskResult
 from documents.models import Comment
 from documents.models import StoragePath
 from documents.tests.utils import DirectoriesMixin
@@ -2783,7 +2786,7 @@ class TestApiStoragePaths(DirectoriesMixin, APITestCase):
 
 class TestTasks(APITestCase):
     ENDPOINT = "/api/tasks/"
-    ENDPOINT_ACKOWLEDGE = "/api/acknowledge_tasks/"
+    ENDPOINT_ACKNOWLEDGE = "/api/acknowledge_tasks/"
 
     def setUp(self):
         super().setUp()
@@ -2792,39 +2795,60 @@ class TestTasks(APITestCase):
         self.client.force_authenticate(user=self.user)
 
     def test_get_tasks(self):
-        task_id1 = str(uuid.uuid4())
-        PaperlessTask.objects.create(task_id=task_id1)
-        Task.objects.create(
-            id=task_id1,
-            started=timezone.now() - datetime.timedelta(seconds=30),
-            stopped=timezone.now(),
-            func="documents.tasks.consume_file",
+        """
+        GIVEN:
+            - Attempted celery tasks
+        WHEN:
+            - API call is made to get tasks
+        THEN:
+            - Attempting and pending tasks are serialized and provided
+        """
+        result1 = TaskResult.objects.create(
+            task_id=str(uuid.uuid4()),
+            task_name="documents.tasks.some_task",
+            status=celery.states.PENDING,
         )
-        task_id2 = str(uuid.uuid4())
-        PaperlessTask.objects.create(task_id=task_id2)
+        PaperlessTask.objects.create(attempted_task=result1)
+
+        result2 = TaskResult.objects.create(
+            task_id=str(uuid.uuid4()),
+            task_name="documents.tasks.other_task",
+            status=celery.states.STARTED,
+        )
+        PaperlessTask.objects.create(attempted_task=result2)
 
         response = self.client.get(self.ENDPOINT)
+        from pprint import pprint
+
+        for x in response.data:
+            pprint(x)
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data), 2)
         returned_task1 = response.data[1]
         returned_task2 = response.data[0]
-        self.assertEqual(returned_task1["task_id"], task_id1)
-        self.assertEqual(returned_task1["status"], "complete")
-        self.assertIsNotNone(returned_task1["attempted_task"])
-        self.assertEqual(returned_task2["task_id"], task_id2)
-        self.assertEqual(returned_task2["status"], "queued")
-        self.assertIsNone(returned_task2["attempted_task"])
+
+        self.assertEqual(returned_task1["task_id"], result1.task_id)
+        self.assertEqual(returned_task1["status"], celery.states.PENDING)
+        self.assertEqual(returned_task1["task_name"], result1.task_name)
+
+        self.assertEqual(returned_task2["task_id"], result2.task_id)
+        self.assertEqual(returned_task2["status"], celery.states.STARTED)
+        self.assertEqual(returned_task2["task_name"], result2.task_name)
 
     def test_acknowledge_tasks(self):
-        task_id = str(uuid.uuid4())
-        task = PaperlessTask.objects.create(task_id=task_id)
+        result1 = TaskResult.objects.create(
+            task_id=str(uuid.uuid4()),
+            task_name="documents.tasks.some_task",
+            status=celery.states.PENDING,
+        )
+        task = PaperlessTask.objects.create(attempted_task=result1)
 
         response = self.client.get(self.ENDPOINT)
         self.assertEqual(len(response.data), 1)
 
         response = self.client.post(
-            self.ENDPOINT_ACKOWLEDGE,
+            self.ENDPOINT_ACKNOWLEDGE,
             {"tasks": [task.id]},
         )
         self.assertEqual(response.status_code, 200)
