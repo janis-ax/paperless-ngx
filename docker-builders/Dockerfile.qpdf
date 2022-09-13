@@ -27,15 +27,21 @@ ARG BUILD_PACKAGES="\
 
 WORKDIR /usr/src
 
-COPY ./docker-builders/qpdf-build.sh ./qpdf-build.sh
+COPY ./docker-builders/qpdf-apt-get-src.sh ./qpdf-apt-get-src.sh
 
 RUN set -eux \
   && echo "Installing build tools" \
     && apt-get update --quiet \
-    && apt-get install --yes --quiet --no-install-recommends ${BUILD_PACKAGES}
-RUN set -eux \
+    && apt-get install --yes --quiet --no-install-recommends ${BUILD_PACKAGES} \
+  && echo "Getting qpdf source" \
+    # if statements are so much easier in a file
+    && chmod +x qpdf-apt-get-src.sh \
+    && ./qpdf-apt-get-src.sh \
   && echo "Building qpdf" \
-    && ./qpdf-build.sh \
+    && cd qpdf/qpdf-$QPDF_VERSION \
+    && export DEB_BUILD_OPTIONS="terse nocheck nodoc parallel=2" \
+    && dpkg-buildpackage --build=binary --unsigned-source --unsigned-changes --post-clean \
+    && ls -ahl ../*.deb \
   && echo "Cleaning up image" \
     && apt-get -y purge ${BUILD_PACKAGES} \
     && apt-get -y autoremove --purge \
