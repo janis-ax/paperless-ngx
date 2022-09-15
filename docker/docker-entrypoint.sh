@@ -52,6 +52,24 @@ map_folders() {
 	export MEDIA_ROOT_DIR="${PAPERLESS_MEDIA_ROOT:-/usr/src/paperless/media}"
 }
 
+nltk_data () {
+	# Store the NLTK data outside the Docker container
+	local nltk_data_dir="${DATA_DIR}/nltk"
+
+	# Download or update the snowball stemmer data
+	python3 -m nltk.downloader -d "${nltk_data_dir}" snowball_data
+
+	# Download or update the stopwords corpus
+	python3 -m nltk.downloader -d "${nltk_data_dir}" stopwords
+
+	# Download or update the punkt tokenizer data
+	python3 -m nltk.downloader -d "${nltk_data_dir}" punkt
+
+	# Set env so nltk can find the downloaded data
+	export NLTK_DATA="${nltk_data_dir}"
+
+}
+
 initialize() {
 
 	# Setup environment from secrets before anything else
@@ -95,6 +113,8 @@ initialize() {
 		find "${dir}" -not \( -user paperless -and -group paperless \) -exec chown paperless:paperless {} +
 	done
 	set -e
+
+	nltk_data
 
 	"${gosu_cmd[@]}" /sbin/docker-prepare.sh
 }
