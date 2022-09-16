@@ -910,3 +910,14 @@ PAPERLESS_ENABLE_UPDATE_CHECK=<bool>
     In either case, no tracking data is collected by the app in any way.
 
     Defaults to none, which disables the feature.
+
+Machine Learning Tweaks
+###############
+
+PAPERLESS_NLTK_LANG=<string>
+    Configure the language Natural Language Toolkit uses when processing document content
+    during automatic matching.
+
+    This must be a supported language for NLTK, which doesn't support all languages.
+
+    Defaults to english.
