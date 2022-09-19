@@ -5,7 +5,7 @@ set -eux
 echo "Getting the correct source source"
 
 src_src="sid"
-deb_version="${QPDF_VERSION}-3"
+deb_version="${QPDF_VERSION}-1"
 
 if [ "${QPDF_VERSION}" = "10.6.3" ] ; then
 	src_src="bookworm"
