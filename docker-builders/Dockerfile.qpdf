@@ -1,7 +1,7 @@
 # This Dockerfile compiles the jbig2enc library
 # Inputs:
 #    - QPDF_VERSION - the version of qpdf to build a .deb.
-#                     Must be preset as a deb-src
+#                     Must be present as a deb-src in bookworm
 
 FROM debian:bullseye-slim as main
 
@@ -27,18 +27,18 @@ ARG BUILD_PACKAGES="\
 
 WORKDIR /usr/src
 
-COPY ./docker-builders/qpdf-apt-get-src.sh ./qpdf-apt-get-src.sh
-
 RUN set -eux \
   && echo "Installing build tools" \
     && apt-get update --quiet \
-    && apt-get install --yes --quiet --no-install-recommends ${BUILD_PACKAGES} \
-  && echo "Getting qpdf source" \
-    # if statements are so much easier in a file
-    && chmod +x qpdf-apt-get-src.sh \
-    && ./qpdf-apt-get-src.sh \
+    && apt-get install --yes --quiet --no-install-recommends $BUILD_PACKAGES \
+  && echo "Getting qpdf src" \
+    && echo "deb-src http://deb.debian.org/debian/ bookworm main" > /etc/apt/sources.list.d/bookworm-src.list \
+    && apt-get update \
+    && mkdir qpdf \
+    && cd qpdf \
+    && apt-get source --yes --quiet qpdf=${QPDF_VERSION}-1/bookworm \
   && echo "Building qpdf" \
-    && cd qpdf/qpdf-$QPDF_VERSION \
+    && cd qpdf-$QPDF_VERSION \
     && export DEB_BUILD_OPTIONS="terse nocheck nodoc parallel=2" \
     && dpkg-buildpackage --build=binary --unsigned-source --unsigned-changes --post-clean \
     && ls -ahl ../*.deb \
